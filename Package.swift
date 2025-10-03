@@ -1,44 +1,32 @@
-// swift-tools-version:6.0
+// swift-tools-version:5.10
 import PackageDescription
 
 let package = Package(
     name: "FeedbackBot",
     platforms: [
-       .macOS(.v13)
+        .macOS(.v13)
     ],
     dependencies: [
-        // 💧 A server-side Swift web framework.
-        .package(url: "https://github.com/vapor/vapor.git", from: "4.115.0"),
-        // 🗄 An ORM for SQL and NoSQL databases.
+        .package(url: "https://github.com/vapor/vapor.git", from: "4.92.0"),
         .package(url: "https://github.com/vapor/fluent.git", from: "4.9.0"),
-        // 🐘 Fluent driver for Postgres.
-        .package(url: "https://github.com/vapor/fluent-postgres-driver.git", from: "2.8.0"),
-        // 🔵 Non-blocking, event-driven networking for Swift. Used for custom executors
-        .package(url: "https://github.com/apple/swift-nio.git", from: "2.65.0"),
+        .package(url: "https://github.com/vapor/fluent-postgres-driver.git", from: "2.9.0")
     ],
     targets: [
-        .executableTarget(
-            name: "FeedbackBot",
+        // Вся логика как библиотека
+        .target(
+            name: "App",
             dependencies: [
-                .product(name: "Fluent", package: "fluent"),
-                .product(name: "FluentPostgresDriver", package: "fluent-postgres-driver"),
                 .product(name: "Vapor", package: "vapor"),
-                .product(name: "NIOCore", package: "swift-nio"),
-                .product(name: "NIOPosix", package: "swift-nio"),
+                .product(name: "Fluent", package: "fluent"),
+                .product(name: "FluentPostgresDriver", package: "fluent-postgres-driver")
             ],
-            swiftSettings: swiftSettings
+            path: "Sources/App"
         ),
-        .testTarget(
-            name: "FeedbackBotTests",
-            dependencies: [
-                .target(name: "FeedbackBot"),
-                .product(name: "VaporTesting", package: "vapor"),
-            ],
-            swiftSettings: swiftSettings
+        // Точка входа — отдельный исполняемый таргет в папке Run (НЕ внутри Sources)
+        .executableTarget(
+            name: "Run",
+            dependencies: ["App"],
+            path: "Run"
         )
     ]
 )
-
-var swiftSettings: [SwiftSetting] { [
-    .enableUpcomingFeature("ExistentialAny"),
-] }
