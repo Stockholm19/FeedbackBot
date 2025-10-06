@@ -1,79 +1,112 @@
-deploy:
-  runs-on: ubuntu-latest
-  needs: build-and-push
-  steps:
-    - name: SSH to VPS and deploy
-      uses: appleboy/ssh-action@v1.2.0
-      with:
-        host: ${{ secrets.VPS_HOST }}
-        username: ${{ secrets.VPS_USER }}
-        key: ${{ secrets.VPS_SSH_KEY }}
-        envs: DOCKERHUB_USERNAME,DOCKERHUB_TOKEN,VPS_APP_DIR
-        script: |
-          set -euo pipefail
+name: Build & Deploy
 
-          APP_DIR="${VPS_APP_DIR:-/apps/feedback-bot}"
-          mkdir -p "$APP_DIR" && cd "$APP_DIR"
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
 
-          if [ ! -f .env ]; then
-            echo "ERROR: $APP_DIR/.env is missing." >&2
-            exit 1
-          fi
+env:
+  DOCKER_IMAGE: ${{ secrets.DOCKER_IMAGE }}     # e.g. helsinki253/feedbackbot
+  VPS_APP_DIR: ${{ secrets.VPS_APP_DIR }}       # e.g. /apps/feedback-bot
 
-          # пишем docker-compose.prod.yml прямо на сервере
-          cat > docker-compose.prod.yml <<'YAML'
-          services:
-            db:
-              image: postgres:16-alpine
-              container_name: feedback-db
-              environment:
-                POSTGRES_DB: ${POSTGRES_DB:-feedback}
-                POSTGRES_USER: ${POSTGRES_USER:-postgres}
-                POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-              volumes:
-                - pgdata:/var/lib/postgresql/data
-              healthcheck:
-                test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-feedback}"]
-                interval: 5s
-                timeout: 3s
-                retries: 20
-              restart: unless-stopped
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-            app:
-              image: ${{ secrets.DOCKER_IMAGE }}:latest
-              container_name: feedback-app
-              depends_on:
-                db:
-                  condition: service_healthy
-              env_file: .env
-              environment:
-                HOST: 0.0.0.0
-                PORT: 8080
-                POSTGRES_HOST: db
-                AUTO_MIGRATE: "true"
-              ports:
-                - "8080:8080"
-              healthcheck:
-                test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
-                interval: 30s
-                timeout: 3s
-                retries: 5
-              restart: unless-stopped
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-          volumes:
-            pgdata:
-          YAML
+      - name: Build & push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
+            ${{ env.DOCKER_IMAGE }}:latest
+            ${{ env.DOCKER_IMAGE }}:${{ github.sha }}
 
-          echo "🔐 Docker Hub login on VPS…"
-          echo "${DOCKERHUB_TOKEN}" | docker login -u "${DOCKERHUB_USERNAME}" --password-stdin
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    steps:
+      - name: SSH to VPS and deploy
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          envs: DOCKERHUB_USERNAME,DOCKERHUB_TOKEN,VPS_APP_DIR,DOCKER_IMAGE
+          script: |
+            set -euo pipefail
 
-          echo "⬇️ Pull & Up…"
-          docker compose -f docker-compose.prod.yml pull
-          docker compose -f docker-compose.prod.yml up -d
+            APP_DIR="${VPS_APP_DIR:-/apps/feedback-bot}"
+            mkdir -p "${APP_DIR}" && cd "${APP_DIR}"
 
-          echo "🧹 Prune…"
-          docker image prune -f
-      env:
-        DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-        DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
-        VPS_APP_DIR: ${{ secrets.VPS_APP_DIR }}
+            if [ ! -f .env ]; then
+              echo "ERROR: ${APP_DIR}/.env is missing." >&2
+              exit 1
+            fi
+
+            # Write docker-compose.prod.yml on the VPS
+            cat > docker-compose.prod.yml <<'YAML'
+            services:
+              db:
+                image: postgres:16-alpine
+                container_name: feedback-db
+                environment:
+                  POSTGRES_DB: ${POSTGRES_DB:-feedback}
+                  POSTGRES_USER: ${POSTGRES_USER:-postgres}
+                  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+                volumes:
+                  - pgdata:/var/lib/postgresql/data
+                healthcheck:
+                  test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-feedback}"]
+                  interval: 5s
+                  timeout: 3s
+                  retries: 20
+                restart: unless-stopped
+
+              app:
+                image: ${{ secrets.DOCKER_IMAGE }}:latest
+                container_name: feedback-app
+                depends_on:
+                  db:
+                    condition: service_healthy
+                env_file: .env
+                environment:
+                  HOST: 0.0.0.0
+                  PORT: 8080
+                  POSTGRES_HOST: db
+                  AUTO_MIGRATE: "true"
+                ports:
+                  - "8080:8080"
+                healthcheck:
+                  test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
+                  interval: 30s
+                  timeout: 3s
+                  retries: 5
+                restart: unless-stopped
+
+            volumes:
+              pgdata:
+            YAML
+
+            echo "🔐 Docker Hub login on VPS…"
+            echo "${DOCKERHUB_TOKEN}" | docker login -u "${DOCKERHUB_USERNAME}" --password-stdin
+
+            echo "⬇️ Pull & Up…"
+            docker compose -f docker-compose.prod.yml pull
+            docker compose -f docker-compose.prod.yml up -d
+
+            echo "🧹 Prune…"
+            docker image prune -f
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
