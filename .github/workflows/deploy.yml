@@ -1,22 +1,28 @@
 name: Build & Deploy
+
 on:
-  push: { branches: [ "main" ] }
+  push:
+    branches: [ "main" ]
   workflow_dispatch:
 
 env:
-  DOCKER_IMAGE: ${{ secrets.DOCKER_IMAGE }}
-  APP_DIR: ${{ secrets.VPS_APP_DIR }}
+  DOCKER_IMAGE: ${{ secrets.DOCKER_IMAGE }}     # helsinki253/feedbackbot
+  APP_DIR: ${{ secrets.VPS_APP_DIR }}           # /apps/feedback-bot
 
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: docker/login-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - uses: docker/build-push-action@v6
+
+      - name: Build & push image
+        uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile
@@ -26,41 +32,40 @@ jobs:
             ${{ env.DOCKER_IMAGE }}:${{ github.sha }}
 
   deploy:
-  runs-on: ubuntu-latest
-  needs: build-and-push
-  steps:
-    - uses: actions/checkout@v4
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    steps:
+      - uses: actions/checkout@v4
 
-    - name: Debug workspace
-    # покажет, что реально видит раннер
-      run: |
-        echo "PWD=$(pwd)"
-        ls -la
-        find . -maxdepth 2 -name "docker-compose*.yml" -print || true
-        test -f ./docker-compose.prod.yml && echo "compose exists" || echo "compose MISSING"
+      - name: Debug workspace
+        run: |
+          echo "PWD=$(pwd)"
+          ls -la
+          find . -maxdepth 2 -name "docker-compose*.yml" -print || true
+          test -f ./docker-compose.prod.yml && echo "compose exists" || echo "compose MISSING"
 
-    - name: Copy compose to VPS
-      uses: appleboy/scp-action@v0.1.7
-      with:
-        host: ${{ secrets.VPS_HOST }}
-        username: ${{ secrets.VPS_USER }}
-        key: ${{ secrets.VPS_SSH_KEY }}
-        source: "./docker-compose.prod.yml"   # ← явный путь
-        target: ${{ secrets.VPS_APP_DIR }}
-        overwrite: true
-        strip_components: 0
+      - name: Copy compose to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          source: "./docker-compose.prod.yml"
+          target: ${{ env.APP_DIR }}
+          overwrite: true
+          strip_components: 0
 
-    - name: Remote deploy on VPS
-      uses: appleboy/ssh-action@v1.2.0
-      with:
-        host: ${{ secrets.VPS_HOST }}
-        username: ${{ secrets.VPS_USER }}
-        key: ${{ secrets.VPS_SSH_KEY }}
-        script: |
-          set -e
-          cd "${{ secrets.VPS_APP_DIR }}"
-          if [ ! -f .env ]; then echo "ERROR: .env missing"; exit 1; fi
-          docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" -p "${{ secrets.DOCKERHUB_TOKEN }}"
-          docker compose -f docker-compose.prod.yml pull
-          docker compose -f docker-compose.prod.yml up -d
-          docker image prune -f
+      - name: Remote deploy on VPS
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            set -e
+            cd "${{ secrets.VPS_APP_DIR }}"
+            if [ ! -f .env ]; then echo "ERROR: .env missing"; exit 1; fi
+            docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" -p "${{ secrets.DOCKERHUB_TOKEN }}"
+            docker compose -f docker-compose.prod.yml pull
+            docker compose -f docker-compose.prod.yml up -d
+            docker image prune -f
