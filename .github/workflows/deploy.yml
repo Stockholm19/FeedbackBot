@@ -46,7 +46,7 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
             set -e
-            cd "${APP_DIR}"
+            cd "${{ secrets.VPS_APP_DIR }}"
             if [ ! -f .env ]; then echo "ERROR: .env missing"; exit 1; fi
             docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" -p "${{ secrets.DOCKERHUB_TOKEN }}"
             docker compose -f docker-compose.prod.yml pull
