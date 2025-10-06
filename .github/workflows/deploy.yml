@@ -37,25 +37,28 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Debug workspace
+      - name: Debug — show files before copy
         run: |
-          echo "PWD=$(pwd)"
+          echo "Current path: $(pwd)"
+          echo "Listing repo contents:"
           ls -la
-          find . -maxdepth 2 -name "docker-compose*.yml" -print || true
-          test -f ./docker-compose.prod.yml && echo "compose exists" || echo "compose MISSING"
+          echo "Looking for compose files:"
+          find . -name "docker-compose*.yml" -print || true
 
-      - name: Copy compose to VPS
+      - name: Copy docker-compose.prod.yml to VPS
+        if: success()
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          source: "./docker-compose.prod.yml"
+          port: 22
+          source: "docker-compose.prod.yml"
           target: ${{ env.APP_DIR }}
           overwrite: true
-          strip_components: 0
 
       - name: Remote deploy on VPS
+        if: success()
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.VPS_HOST }}
@@ -64,8 +67,21 @@ jobs:
           script: |
             set -e
             cd "${{ secrets.VPS_APP_DIR }}"
-            if [ ! -f .env ]; then echo "ERROR: .env missing"; exit 1; fi
+            echo "✅ Connected to VPS"
+            ls -la
+            if [ ! -f .env ]; then
+              echo "❌ ERROR: .env file missing in $(pwd)"
+              exit 1
+            fi
+
+            echo "🔐 Logging in to Docker Hub..."
             docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" -p "${{ secrets.DOCKERHUB_TOKEN }}"
+
+            echo "⬇️ Pulling and restarting containers..."
             docker compose -f docker-compose.prod.yml pull
             docker compose -f docker-compose.prod.yml up -d
+
+            echo "🧹 Cleaning up old images..."
             docker image prune -f
+
+            echo "✅ Deployment complete!"
