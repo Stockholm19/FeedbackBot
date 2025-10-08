@@ -24,14 +24,9 @@ Telegram-бот для сбора офисных обращений, строи�
 
 ## Скриншоты
 
-<p align="center">
-  <img src="Screenshots/kuma-dashboard.png" alt="Kuma Dashboard" width="45%"/>
-  <img src="Screenshots/github-actions.png" alt="GitHub Actions" width="45%"/>
-</p>
-<p align="center">
-  <img src="Screenshots/telegram-bot-Kuma.png" alt="Telegram Notifications Kuma" width="45%"/>
-  <img src="Screenshots/TgBotDeploymentTracker.png" alt="Telegram Deployment Tracker" width="45%"/>
-</p>
+| Мониторинг (Uptime Kuma) | CI/CD (GitHub Actions) | Уведомления от Kuma в TG | CI уведомления (Deployment Tracker) |
+|---------------------------|-------------------------|------------------------|------------------------------|
+| ![Kuma Dashboard](Screenshots/kuma-dashboard.png) | ![GitHub Actions](Screenshots/github-actions.png) | ![Telegram Notifications](Screenshots/telegram-bot-Kuma.png) | ![Telegram Deployment Tracker](Screenshots/TgBotDeploymentTracker.png) |
 
 ## Структура проекта
 
