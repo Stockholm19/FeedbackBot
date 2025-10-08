@@ -38,7 +38,7 @@ jobs:
     steps:
       - name: Mark start time
         id: t0
-        run: echo "ts=$(date +%s)" >> $GITHUB_OUTPUT
+        run: echo "start_time=$(date +%s)" >> $GITHUB_OUTPUT
 
       - name: SSH to VPS and deploy
         uses: appleboy/ssh-action@v1.2.0
@@ -111,6 +111,11 @@ jobs:
 
             echo "🧹 Prune…"
             docker image prune -f
+
+      - name: Calculate duration
+        id: duration
+        run: echo "duration=$(( $(date +%s) - ${{ steps.t0.outputs.start_time }} ))" >> $GITHUB_OUTPUT
+
       - name: Notify Telegram (success)
         if: success()
         uses: appleboy/telegram-action@v1.0.0
@@ -127,7 +132,7 @@ jobs:
             • By: `${{ github.actor }}`
             • Image: `${{ env.DOCKER_IMAGE }}:latest`
             • App dir: `${{ secrets.VPS_APP_DIR }}`
-            • Duration: $(( $(date +%s) - ${{ steps.t0.outputs.ts }} ))s
+            • Duration: `${{ steps.duration.outputs.duration }}s`
             🔗 Logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
       - name: Notify Telegram (failure)
@@ -145,6 +150,7 @@ jobs:
             • Hash: `${{ github.sha }}`
             • By: `${{ github.actor }}`
             • Image: `${{ env.DOCKER_IMAGE }}:latest`
+            • Duration: `${{ steps.duration.outputs.duration }}s`
             🔗 Logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
     env:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
