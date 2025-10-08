@@ -122,7 +122,8 @@ jobs:
             ✅ *Build & Deploy — OK*
             • Repo: `${{ github.repository }}`
             • Branch: `${{ github.ref_name }}`
-            • Commit: `${{ github.sha }}`
+            • Commit: `${{ github.event.head_commit.message }}`
+            • Hash: `${{ github.sha }}`
             • By: `${{ github.actor }}`
             • Image: `${{ env.DOCKER_IMAGE }}:latest`
             • App dir: `${{ secrets.VPS_APP_DIR }}`
@@ -140,7 +141,8 @@ jobs:
             ❌ *Build/Deploy failed*
             • Repo: `${{ github.repository }}`
             • Branch: `${{ github.ref_name }}`
-            • Commit: `${{ github.sha }}`
+            • Commit: `${{ github.event.head_commit.message }}`
+            • Hash: `${{ github.sha }}`
             • By: `${{ github.actor }}`
             • Image: `${{ env.DOCKER_IMAGE }}:latest`
             🔗 Logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
