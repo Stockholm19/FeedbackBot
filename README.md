@@ -24,9 +24,14 @@ Telegram-бот для сбора офисных обращений, строи�
 
 ## Скриншоты
 
-| Мониторинг (Uptime Kuma) | CI/CD (GitHub Actions) | Уведомления в Telegram |
-|---------------------------|-------------------------|------------------------|
-| ![Kuma Dashboard](Screenshots/kuma-dashboard.png) | ![GitHub Actions](Screenshots/github-actions.png) | ![Telegram Notifications](Screenshots/telegram-bot-Kuma.png) |
+<p align="center">
+  <img src="Screenshots/kuma-dashboard.png" alt="Kuma Dashboard" width="45%"/>
+  <img src="Screenshots/github-actions.png" alt="GitHub Actions" width="45%"/>
+</p>
+<p align="center">
+  <img src="Screenshots/telegram-bot-Kuma.png" alt="Telegram Notifications Kuma" width="45%"/>
+  <img src="Screenshots/TgBotDeploymentTracker.png" alt="Telegram Deployment Tracker" width="45%"/>
+</p>
 
 ## Структура проекта
 
@@ -68,4 +73,3 @@ Telegram-бот для сбора офисных обращений, строи�
 
 Эндпоинты `/health` и `/healthz` интегрированы с Uptime Kuma для отслеживания статуса приложения и подключения к базе данных.
 Рекомендуется использовать `/healthz` в Uptime Kuma, так как он дополнительно проверяет доступность Postgres.
-
