@@ -1,22 +1,23 @@
 # FeedbackBot
 
-FeedbackBot — Telegram-бот для сбора офисных обращений, построенный на Vapor 4 (совместим со Swift 6) + Fluent + PostgreSQL, с контейнеризацией через Docker и полным циклом CI/CD на GitHub Actions с автоматическими уведомлениями о результатах сборки и деплоя в Telegram, а также интеграцией health‑эндпоинтов с Uptime Kuma.
-
-## Описание проекта
-
-Telegram-бот уже работает через Long-Polling. Реализованы меню `/start` и кнопка «Оставить обращение». Бот принимает сообщения и сохраняет их в базу данных PostgreSQL. Проект работает в Docker-контейнерах. CI/CD и health-check эндпоинты `/health` и `/healthz`.
+**FeedbackBot** — корпоративный Telegram-бот для сбора и экспорта обращений сотрудников.  
+Бот построен на **Vapor 4 (Swift 6)** с использованием **PostgreSQL**, контейнеризован через **Docker** и снабжён полноценным **CI/CD-циклом** на GitHub Actions.  
+Уведомления о сборках и состоянии сервера приходят в Telegram, а health-эндпоинты интегрированы с **Uptime Kuma**.
 
 ## Текущий статус
 
 ### Реализовано
-- Telegram-бот с Long-Polling, меню `/start` и кнопкой «Оставить обращение»;
-- Приём сообщений из Telegram и сохранение обращений в PostgreSQL;
-- Backend на Vapor 4 (Swift 6) с feature-folder структурой;
-- Модель Feedback и миграции (Fluent + PostgreSQL);
-- Health-эндпоинты `/health` и `/healthz` для проверки сервера и базы данных;
-- Dockerfile и `docker-compose.yml` для локального и продакшн окружений;
-- CI/CD: автоматическая сборка и деплой на VPS через GitHub Actions с уведомлениями в Telegram;
-- Мониторинг через Uptime Kuma с алертами в Telegram-бот @KumaNotifierGKUBot.
+- Полностью работающий Telegram-бот на Long-Polling;
+- Главное меню `/start` и кнопки «Оставить обращение» / «Экспорт»;
+- Приём обращений и сохранение в PostgreSQL;
+- Экспорт обращений в **CSV-файл** с корректным экранированием и отправкой в Telegram;
+- Сервис `TelegramService` с безопасной обработкой multipart-запросов;
+- Модуль `CSVExporter` (RFC-4180-совместимый формат, поддержка Excel/Numbers);
+- Логирование и защита от зацикливания при экспорте;
+- CI/CD: автоматическая сборка и деплой на сервер через GitHub Actions;
+- Docker-окружение для локальной разработки и продакшена;
+- Health-эндпоинты `/health` и `/healthz`, совместимые с **Uptime Kuma**;
+- Уведомления о деплое и состоянии контейнера в Telegram.
 
 ## Архитектура Telegram-бота
 
