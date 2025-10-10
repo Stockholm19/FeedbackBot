@@ -28,6 +28,18 @@ public func configure(_ app: Application) async throws {
             tls: .disable
         )
         app.databases.use(.postgres(configuration: cfg), as: .psql)
+        
+        if let token = Environment.get("TELEGRAM_TOKEN"), !token.isEmpty {
+               app.logger.info("Telegram enabled")
+               app.telegram = TGHTTPService(app: app, token: token)
+           } else {
+               app.logger.warning("TELEGRAM_TOKEN not set — TelegramService is Noop")
+               app.telegram = NoopTelegramService()
+           }
+    }
+    
+    if let poller = TelegramPolling(app: app) {
+        app.lifecycle.use(poller)
     }
 
     // --- Migrations ---
