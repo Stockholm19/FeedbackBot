@@ -12,6 +12,8 @@ import FluentPostgresDriver
 /// Основная конфигурация приложения: базы, миграции, роуты.
 /// Вызывается из Bootstrap после базовых настроек сервера.
 public func configure(_ app: Application) async throws {
+    app.logger.info("Configure: env=\(app.environment.name)")
+
     // --- Database ---
     if let url = Environment.get("DATABASE_URL") {
         let cfg = try SQLPostgresConfiguration(url: url)
@@ -30,9 +32,46 @@ public func configure(_ app: Application) async throws {
         app.databases.use(.postgres(configuration: cfg), as: .psql)
     }
 
+    // --- Telegram service (always) ---
+    let token = Environment.get("TELEGRAM_TOKEN") ?? Environment.get("BOT_TOKEN") ?? ""
+    if !token.isEmpty {
+        app.logger.info("Telegram enabled")
+        app.telegram = TGHTTPService(app: app, token: token)
+    } else {
+        app.logger.warning("Telegram disabled (no token)")
+        app.telegram = NoopTelegramService()
+    }
+
+    // --- Admin IDs (always) ---
+    if let raw = Environment.get("ADMIN_IDS") {
+        let set = Set(
+            raw.split { ",; ".contains($0) }
+               .compactMap { Int64($0.trimmingCharacters(in: .whitespaces)) }
+        )
+        app.adminIDs = set
+        app.logger.info("Admin IDs loaded: \(set)")
+    } else {
+        app.adminIDs = []
+        app.logger.info("Admin IDs not set")
+    }
+
+    // --- Long-polling lifecycle ---
+    if let poller = TelegramPolling(app: app) {
+        app.lifecycle.use(poller)
+    }
+
     // --- Migrations ---
     try registerMigrations(app)
 
     // --- Routes ---
     try registerRoutes(app)
+}
+
+
+private struct AdminIDsKey: StorageKey { typealias Value = Set<Int64> }
+extension Application {
+    var adminIDs: Set<Int64> {
+        get { storage[AdminIDsKey.self] ?? [] }
+        set { storage[AdminIDsKey.self] = newValue }
+    }
 }
