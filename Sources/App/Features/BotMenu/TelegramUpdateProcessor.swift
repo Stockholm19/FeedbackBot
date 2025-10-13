@@ -220,6 +220,39 @@ enum TelegramUpdateProcessor {
                 source: "telegram"
             )
             try await item.save(on: app.db)
+
+            // Уведомление ответственным (список из .env: NOTIFY_CHAT_IDS=123,456)
+            if let idsString = Environment.get("NOTIFY_CHAT_IDS") {
+                let ids = idsString
+                    .split(separator: ",")
+                    .compactMap { Int64($0.trimmingCharacters(in: .whitespaces)) }
+
+                // Форматируем дату/время с фиксированным московским +03:00
+                let created = item.createdAt ?? Date()
+                let offset: TimeInterval = 3 * 3600
+                let local = created.addingTimeInterval(offset)
+                var gmtCal = Calendar(identifier: .gregorian)
+                gmtCal.timeZone = TimeZone(secondsFromGMT: 0)!
+                let c = gmtCal.dateComponents([.day, .month, .year, .hour, .minute], from: local)
+                let dStr = String(format: "%02d.%02d.%04d", c.day ?? 0, c.month ?? 0, c.year ?? 0)
+                let tStr = String(format: "%02d:%02d", c.hour ?? 0, c.minute ?? 0)
+
+                let usr = username ?? "—"
+                let msg = """
+                ✉️ Новое обращение
+                Дата: \(dStr) \(tStr)
+                Пользователь: @\(usr) (id: \(userID))
+                Чат: \(chatID)
+                
+                Текст:
+                \(text)
+                """
+
+                for id in ids {
+                    await app.telegram.sendMessage(id, msg)
+                }
+            }
+
             await app.telegram.sendMessage(chatID, "✅ *Спасибо, ваше обращение принято!*", keyboard: mainKeyboard(app: app, userID: userID))
             return
         }
