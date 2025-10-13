@@ -203,7 +203,7 @@ enum TelegramUpdateProcessor {
         // 5) Нажали кнопку "Оставить обращение" — ждём текст
         if text == "Оставить обращение" {
             SessionStore.shared.set(chatID, key: SessionKey.state, value: SessionKey.awaiting)
-            await app.telegram.sendMessage(chatID, "Напишите ваше обращение. Я передам его анонимно.", keyboard: mainKeyboard(app: app, userID: userID))
+            await app.telegram.sendMessage(chatID, "Напишите ваше обращение. Я передам его ответственному сотруднику.", keyboard: mainKeyboard(app: app, userID: userID))
             return
         }
 
