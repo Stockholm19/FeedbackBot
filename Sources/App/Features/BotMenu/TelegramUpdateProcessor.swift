@@ -82,27 +82,41 @@ enum TelegramUpdateProcessor {
             await app.telegram.sendMessage(chatID, "Готовлю экспорт: \(items.count) записей…", keyboard: mainKeyboard(app: app, userID: userID))
 
             app.logger.info("CSV: start building")
-            let buf = CSVExporter.export(items) { f in
-                // Безопасные строковые представления для всех полей
-                let created = (f.createdAt?.timeIntervalSince1970).map { String($0) } ?? ""
-                let statusStr = String(describing: f.status)
-                let userIDStr = String(describing: f.userID)
-                let usernameStr = f.username ?? ""
-                let officeStr = f.officeTag ?? ""
-                let sourceStr = f.source ?? ""
-                let textStr = String(describing: f.text).replacingOccurrences(of: "\n", with: " ")
+            let headers = [
+                "ID",
+                "CreatedAtEpoch",
+                "Status",
+                "UserID",
+                "Username",
+                "OfficeTag",
+                "Source",
+                "Text"
+            ]
+
+            // Собираем CSV в Data (CRLF + BOM), безопасно для Linux/Excel
+            let data = CSVExporter.exportData(
+                headers: headers,
+                rows: items,
+                delimiter: ";",
+                lineEnding: .crlf,
+                addUTF8BOM: true
+            ) { f in
+                let createdEpoch = f.createdAt.map { String(Int($0.timeIntervalSince1970)) } ?? ""
                 return [
                     f.id?.uuidString ?? "",
-                    created,
-                    statusStr,
-                    userIDStr,
-                    usernameStr,
-                    officeStr,
-                    sourceStr,
-                    textStr
+                    createdEpoch,
+                    String(describing: f.status),
+                    String(describing: f.userID),
+                    f.username ?? "",
+                    f.officeTag ?? "",
+                    f.source ?? "",
+                    f.text
                 ]
             }
-            app.logger.info("CSV: built buffer")
+
+            var buf = ByteBufferAllocator().buffer(capacity: data.count)
+            buf.writeBytes(data)
+            app.logger.info("CSV: built buffer, bytes=\(data.count)")
 
             if buf.readableBytes == 0 {
                 app.logger.warning("CSV buffer is empty — aborting sendDocument")
@@ -117,8 +131,10 @@ enum TelegramUpdateProcessor {
                 caption: "Экспорт готов ✅",
                 keyboard: mainKeyboard(app: app, userID: userID)
             )
+            app.logger.info("CSV: sent to Telegram")
+
         } catch {
-            app.logger.report(error: error)
+            app.logger.error("export failed: \(String(describing: error))")
             await app.telegram.sendMessage(chatID, "Не получилось сделать экспорт 😕\n" + String(describing: error), keyboard: mainKeyboard(app: app, userID: userID))
         }
     }

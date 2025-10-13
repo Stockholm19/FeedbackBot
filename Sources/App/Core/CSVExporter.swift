@@ -6,6 +6,20 @@
 //
 
 import Vapor
+import Foundation
+
+/// Переводы строк для CSV
+enum LineEnding {
+    case lf   // \n — Unix/macOS
+    case crlf // \r\n — Windows/Excel
+
+    var string: String {
+        switch self {
+        case .lf: return "\n"
+        case .crlf: return "\r\n"
+        }
+    }
+}
 
 /// Простая утилита для экспорта CSV.
 /// Делает корректное RFC‑4180 экранирование (двойные кавычки и переносы строк),
@@ -21,11 +35,11 @@ struct CSVExporter {
         return "\"" + escaped + "\""
     }
 
-    /// Собирает CSV-строку. По умолчанию разделитель `;` (как ты использовал в БД/экспорте).
     private static func buildCSV<T>(
         headers: [String]?,
         rows: [T],
         delimiter: Character,
+        lineEnding: LineEnding,
         make: (T) -> [String]
     ) -> String {
         let sep = String(delimiter)
@@ -38,42 +52,55 @@ struct CSVExporter {
             lines.append(cols.joined(separator: sep))
         }
         // Завершаем переводом строки, чтобы CSV корректно открывался в Excel/Numbers
-        return lines.joined(separator: "\n") + "\n"
+        return lines.joined(separator: lineEnding.string) + lineEnding.string
     }
 
-    /// Экспорт в ByteBuffer (UTF‑8), без заголовков, разделитель по умолчанию — `;`.
     static func export<T>(
         _ rows: [T],
         delimiter: Character = ";",
+        lineEnding: LineEnding = .lf,
+        addUTF8BOM: Bool = false,
         make: (T) -> [String]
     ) -> ByteBuffer {
-        let csv = buildCSV(headers: nil, rows: rows, delimiter: delimiter, make: make)
-        var buf = ByteBufferAllocator().buffer(capacity: csv.utf8.count)
+        let csv = buildCSV(headers: nil, rows: rows, delimiter: delimiter, lineEnding: lineEnding, make: make)
+        let bom = addUTF8BOM ? "\u{FEFF}" : ""
+        var buf = ByteBufferAllocator().buffer(capacity: bom.utf8.count + csv.utf8.count)
+        if addUTF8BOM { buf.writeString(bom) }
         buf.writeString(csv)
         return buf
     }
 
-    /// Экспорт с заголовками в ByteBuffer (UTF‑8).
     static func export<T>(
         headers: [String],
         rows: [T],
         delimiter: Character = ";",
+        lineEnding: LineEnding = .lf,
+        addUTF8BOM: Bool = false,
         make: (T) -> [String]
     ) -> ByteBuffer {
-        let csv = buildCSV(headers: headers, rows: rows, delimiter: delimiter, make: make)
-        var buf = ByteBufferAllocator().buffer(capacity: csv.utf8.count)
+        let csv = buildCSV(headers: headers, rows: rows, delimiter: delimiter, lineEnding: lineEnding, make: make)
+        let bom = addUTF8BOM ? "\u{FEFF}" : ""
+        var buf = ByteBufferAllocator().buffer(capacity: bom.utf8.count + csv.utf8.count)
+        if addUTF8BOM { buf.writeString(bom) }
         buf.writeString(csv)
         return buf
     }
 
-    /// Экспорт в Data (удобно, если хочется передавать через перегрузку `sendDocument(data:)`).
     static func exportData<T>(
         headers: [String]? = nil,
         rows: [T],
         delimiter: Character = ";",
+        lineEnding: LineEnding = .lf,
+        addUTF8BOM: Bool = false,
         make: (T) -> [String]
     ) -> Data {
-        let csv = buildCSV(headers: headers, rows: rows, delimiter: delimiter, make: make)
-        return Data(csv.utf8)
+        let csv = buildCSV(headers: headers, rows: rows, delimiter: delimiter, lineEnding: lineEnding, make: make)
+        if addUTF8BOM {
+            var data = Data("\u{FEFF}".utf8)
+            data.append(Data(csv.utf8))
+            return data
+        } else {
+            return Data(csv.utf8)
+        }
     }
 }
