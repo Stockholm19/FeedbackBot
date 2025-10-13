@@ -83,15 +83,35 @@ enum TelegramUpdateProcessor {
 
             app.logger.info("CSV: start building")
             let headers = [
+                "Дата",
+                "Время",
                 "ID",
-                "CreatedAtEpoch",
-                "Status",
-                "UserID",
+                "Статус",
+                "ID пользователя",
                 "Username",
-                "OfficeTag",
-                "Source",
-                "Text"
+                "Отдел/Тег",
+                "Источник",
+                "Текст"
             ]
+
+            // Базовое «сейчас» — будем использовать только для пустых дат
+            let now = Date()
+
+            // Хелпер форматирования даты конкретной записи
+            func formatDatePair(_ date: Date?) -> (String, String) {
+                
+                let d = date ?? now
+                
+                // Фиксированный сдвиг для Москвы: +03:00 (переходов нет)
+                let offset: TimeInterval = 3 * 3600
+                let local = d.addingTimeInterval(offset)
+                var gmtCal = Calendar(identifier: .gregorian)
+                gmtCal.timeZone = TimeZone(secondsFromGMT: 0)!
+                let c = gmtCal.dateComponents([.day, .month, .year, .hour, .minute], from: local)
+                let dStr = String(format: "%02d.%02d.%04d", c.day ?? 0, c.month ?? 0, c.year ?? 0)
+                let tStr = String(format: "%02d:%02d", c.hour ?? 0, c.minute ?? 0)
+                return (dStr, tStr)
+            }
 
             // Собираем CSV в Data (CRLF + BOM), безопасно для Linux/Excel
             let data = CSVExporter.exportData(
@@ -101,10 +121,11 @@ enum TelegramUpdateProcessor {
                 lineEnding: .crlf,
                 addUTF8BOM: true
             ) { f in
-                let createdEpoch = f.createdAt.map { String(Int($0.timeIntervalSince1970)) } ?? ""
+                let (dStr, tStr) = formatDatePair(f.createdAt)
                 return [
+                    dStr,
+                    tStr,
                     f.id?.uuidString ?? "",
-                    createdEpoch,
                     String(describing: f.status),
                     String(describing: f.userID),
                     f.username ?? "",
