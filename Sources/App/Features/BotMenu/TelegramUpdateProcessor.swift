@@ -222,10 +222,16 @@ enum TelegramUpdateProcessor {
             try await item.save(on: app.db)
 
             // Уведомление ответственным (список из .env: NOTIFY_CHAT_IDS=123,456)
-            if let idsString = Environment.get("NOTIFY_CHAT_IDS") {
+            let notifyEnabled = (Environment.get("NOTIFY_ENABLED") ?? "false").lowercased() == "true"
+            if notifyEnabled, let idsString = Environment.get("NOTIFY_CHAT_IDS") {
                 let ids = idsString
                     .split(separator: ",")
                     .compactMap { Int64($0.trimmingCharacters(in: .whitespaces)) }
+
+                guard !ids.isEmpty else {
+                    app.logger.info("NOTIFY_ENABLED=true, но список NOTIFY_CHAT_IDS пуст — уведомления пропущены")
+                    return
+                }
 
                 // Форматируем дату/время с фиксированным московским +03:00
                 let created = item.createdAt ?? Date()
@@ -251,6 +257,10 @@ enum TelegramUpdateProcessor {
                 for id in ids {
                     await app.telegram.sendMessage(id, msg)
                 }
+
+                app.logger.info("Notifications sent to \(ids.count) responsible user(s)")
+            } else {
+                app.logger.info("Уведомления отключены (NOTIFY_ENABLED=false)")
             }
 
             await app.telegram.sendMessage(chatID, "✅ *Спасибо, ваше обращение принято!*", keyboard: mainKeyboard(app: app, userID: userID))
