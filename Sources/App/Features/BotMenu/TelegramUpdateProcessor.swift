@@ -243,13 +243,21 @@ enum TelegramUpdateProcessor {
                 let dStr = String(format: "%02d.%02d.%04d", c.day ?? 0, c.month ?? 0, c.year ?? 0)
                 let tStr = String(format: "%02d:%02d", c.hour ?? 0, c.minute ?? 0)
 
-                let usr = username ?? "—"
+                // Формируем текст уведомления с явным ID обращения (короткий UUID)
+                let ticketUUID = item.id?.uuidString ?? ""
+                let ticketShort = ticketUUID.isEmpty ? "—" : String(ticketUUID.prefix(8))
+                let userTag = (username?.isEmpty == false) ? "@\(username!)" : "<без username>"
+
+                // Формируем текст: сначала пользователь, затем ID обращения.
+                // Чат выводим только если он отличается от userID (актуально для групп).
+                let chatLine: String = (chatID != userID) ? "\nЧат Telegram: \(chatID)\n" : "\n"
+
                 let msg = """
                 ✉️ Новое обращение
                 Дата: \(dStr) \(tStr)
-                Пользователь: @\(usr) (id: \(userID))
-                Чат: \(chatID)
-                
+                Пользователь: \(userTag) (ID пользователя: \(userID))
+                ID обращения: \(ticketUUID)
+                \(chatLine)
                 Текст:
                 \(text)
                 """
