@@ -190,7 +190,7 @@ enum TelegramUpdateProcessor {
         // 3) /start — главное меню (добавляем кнопку экспорта для админов)
         if cmd == "/start" {
             let kb = mainKeyboard(app: app, userID: userID)
-            await app.telegram.sendMessage(chatID, "Привет! Это *FeedbackBot*.\nВыберите действие:", keyboard: kb)
+            await app.telegram.sendMessage(chatID, "Привет! Это *Комфортик*.\nПомогу сделать офис уютнее — выберите действие:", keyboard: kb)
             return
         }
 
