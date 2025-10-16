@@ -201,7 +201,7 @@ enum TelegramUpdateProcessor {
         // 3) /start — главное меню (добавляем кнопку экспорта для админов)
         if cmd == "/start" {
             let kb = mainKeyboard(app: app, userID: userID)
-            await app.telegram.sendMessage(chatID, "Привет! Это *Саян Саныч*.\nРасскажите, с чем столкнулись, или предложите идею.", keyboard: kb)
+            await app.telegram.sendMessage(chatID, "Привет! Это *Саян Саныч*.\nГотов вам помочь.", keyboard: kb)
             return
         }
 
@@ -218,7 +218,7 @@ enum TelegramUpdateProcessor {
             SessionStore.shared.set(chatID, key: SessionKey.state, value: SessionKey.awaiting)
             await app.telegram.sendMessage(
                 chatID,
-                "Напишите ваше сообщение. Я передам его ответственному сотруднику.",
+                "Расскажите, с чем столкнулись, или предложите идеи по улучшению офиса. Я передам информацию ответственным сотрудникам.",
                 keyboard: inputKeyboard()
             )
             return
