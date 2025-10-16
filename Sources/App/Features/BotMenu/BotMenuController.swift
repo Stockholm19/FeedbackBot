@@ -15,6 +15,6 @@ final class BotMenuController: RouteCollection {
 
     func start(req: Request) async throws -> String {
         let user = (try? req.query.get(String.self, at: "user")) ?? "guest"
-        return "Hello, \(user)! Выберите действие: [Оставить обращение]"
+        return "Hello, \(user)! Выберите действие: [Оставить сообщение]"
     }
 }

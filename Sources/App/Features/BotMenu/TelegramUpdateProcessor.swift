@@ -21,7 +21,7 @@ enum TelegramUpdateProcessor {
     
     // Главная клавиатура (всегда возвращаем её пользователю)
     private static func mainKeyboard(app: Application, userID: Int64) -> TGReplyKeyboardMarkup {
-        var row: [TGKeyboardButton] = [TGKeyboardButton(text: "Оставить обращение")]
+        var row: [TGKeyboardButton] = [TGKeyboardButton(text: "Оставить пожелание")]
         if app.adminIDs.contains(userID) {
             row.append(TGKeyboardButton(text: "Экспорт"))
         }
@@ -213,8 +213,8 @@ enum TelegramUpdateProcessor {
             return
         }
 
-        // 5) Нажали кнопку "Оставить обращение" — ждём текст
-        if text == "Оставить обращение" {
+        // 5) Нажали кнопку "Оставить пожелание" — ждём текст
+        if text == "Оставить пожелание" {
             SessionStore.shared.set(chatID, key: SessionKey.state, value: SessionKey.awaiting)
             await app.telegram.sendMessage(
                 chatID,
@@ -235,7 +235,7 @@ enum TelegramUpdateProcessor {
             return
         }
 
-        // 6) Если ждём текст — сохраняем обращение
+        // 6) Если ждём текст — сохраняем пожелание
         if (SessionStore.shared.get(chatID, key: SessionKey.state) as? String) == SessionKey.awaiting {
             SessionStore.shared.set(chatID, key: SessionKey.state, value: "")
             let item = Feedback(
@@ -281,7 +281,7 @@ enum TelegramUpdateProcessor {
                 let chatLine: String = (chatID != userID) ? "\nЧат Telegram: \(chatID)\n" : "\n"
 
                 let msg = """
-                ✉️ Новое обращение
+                ✉️ Новое пожелание
                 Дата: \(dStr) \(tStr)
                 Пользователь: \(userTag) (ID пользователя: \(userID))
                 ID обращения: \(ticketUUID)
@@ -299,7 +299,7 @@ enum TelegramUpdateProcessor {
                 app.logger.info("Уведомления отключены (NOTIFY_ENABLED=false)")
             }
 
-            await app.telegram.sendMessage(chatID, "✅ *Спасибо, ваше обращение принято!*", keyboard: mainKeyboard(app: app, userID: userID))
+            await app.telegram.sendMessage(chatID, "✅ *Спасибо, ваше пожелание принято!*", keyboard: mainKeyboard(app: app, userID: userID))
             return
         }
 
