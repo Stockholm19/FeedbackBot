@@ -32,6 +32,15 @@ enum TelegramUpdateProcessor {
         )
     }
 
+    // Клавиатура режима ввода (одна кнопка "Назад")
+    private static func inputKeyboard() -> TGReplyKeyboardMarkup {
+        return TGReplyKeyboardMarkup(
+            keyboard: [[TGKeyboardButton(text: "Назад")]],
+            resize_keyboard: true,
+            one_time_keyboard: false
+        )
+    }
+
     // Простой замок для предотвращения параллельных/повторных экспортов на чат
     private static var exportLocks = Set<Int64>()
     private static let exportLockQueue = DispatchQueue(label: "tg.export.lock")
@@ -177,6 +186,8 @@ enum TelegramUpdateProcessor {
 
         // 1) /export — только для админов
         if cmd == "/export" {
+            // сбросим режим ввода, если пользователь ушёл в экспорт
+            SessionStore.shared.set(chatID, key: SessionKey.state, value: "")
             try await doExport(app: app, chatID: chatID, userID: userID)
             return
         }
@@ -196,6 +207,8 @@ enum TelegramUpdateProcessor {
 
         // 4) Нажали кнопку "Экспорт"
         if text == "Экспорт" {
+            // сбросим режим ввода, если пользователь ушёл в экспорт
+            SessionStore.shared.set(chatID, key: SessionKey.state, value: "")
             try await doExport(app: app, chatID: chatID, userID: userID)
             return
         }
@@ -203,7 +216,22 @@ enum TelegramUpdateProcessor {
         // 5) Нажали кнопку "Оставить обращение" — ждём текст
         if text == "Оставить обращение" {
             SessionStore.shared.set(chatID, key: SessionKey.state, value: SessionKey.awaiting)
-            await app.telegram.sendMessage(chatID, "Напишите ваше обращение. Я передам его ответственному сотруднику.", keyboard: mainKeyboard(app: app, userID: userID))
+            await app.telegram.sendMessage(
+                chatID,
+                "Напишите ваше пожелание. Я передам его ответственному сотруднику.",
+                keyboard: inputKeyboard()
+            )
+            return
+        }
+
+        // 5.1) "Назад" — выходим из режима ввода и показываем меню
+        if text == "Назад" {
+            SessionStore.shared.set(chatID, key: SessionKey.state, value: "")
+            await app.telegram.sendMessage(
+                chatID,
+                "Окей, вернул в главное меню. Выберите действие:",
+                keyboard: mainKeyboard(app: app, userID: userID)
+            )
             return
         }
 
