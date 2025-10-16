@@ -21,7 +21,7 @@ enum TelegramUpdateProcessor {
     
     // Главная клавиатура (всегда возвращаем её пользователю)
     private static func mainKeyboard(app: Application, userID: Int64) -> TGReplyKeyboardMarkup {
-        var row: [TGKeyboardButton] = [TGKeyboardButton(text: "Оставить пожелание")]
+        var row: [TGKeyboardButton] = [TGKeyboardButton(text: "Оставить сообщение")]
         if app.adminIDs.contains(userID) {
             row.append(TGKeyboardButton(text: "Экспорт"))
         }
@@ -201,7 +201,7 @@ enum TelegramUpdateProcessor {
         // 3) /start — главное меню (добавляем кнопку экспорта для админов)
         if cmd == "/start" {
             let kb = mainKeyboard(app: app, userID: userID)
-            await app.telegram.sendMessage(chatID, "Привет! Это *Саяныч*.\nПомогу сделать офис уютнее — выберите действие:", keyboard: kb)
+            await app.telegram.sendMessage(chatID, "Привет! Это *Саян Саныч*.\nРасскажите, с чем столкнулись, или поделитесь своей идеей.", keyboard: kb)
             return
         }
 
@@ -213,12 +213,12 @@ enum TelegramUpdateProcessor {
             return
         }
 
-        // 5) Нажали кнопку "Оставить пожелание" — ждём текст
-        if text == "Оставить пожелание" {
+        // 5) Нажали кнопку "Оставить сообщение" — ждём текст
+        if text == "Оставить сообщение" {
             SessionStore.shared.set(chatID, key: SessionKey.state, value: SessionKey.awaiting)
             await app.telegram.sendMessage(
                 chatID,
-                "Напишите ваше пожелание. Я передам его ответственному сотруднику.",
+                "Напишите ваше сообщение. Я передам его ответственному сотруднику.",
                 keyboard: inputKeyboard()
             )
             return
@@ -229,13 +229,13 @@ enum TelegramUpdateProcessor {
             SessionStore.shared.set(chatID, key: SessionKey.state, value: "")
             await app.telegram.sendMessage(
                 chatID,
-                "Окей, вернул в главное меню. Выберите действие:",
+                "Хорошо, вернул в главное меню. Выберите действие:",
                 keyboard: mainKeyboard(app: app, userID: userID)
             )
             return
         }
 
-        // 6) Если ждём текст — сохраняем пожелание
+        // 6) Если ждём текст — сохраняем сообщение
         if (SessionStore.shared.get(chatID, key: SessionKey.state) as? String) == SessionKey.awaiting {
             SessionStore.shared.set(chatID, key: SessionKey.state, value: "")
             let item = Feedback(
@@ -281,7 +281,7 @@ enum TelegramUpdateProcessor {
                 let chatLine: String = (chatID != userID) ? "\nЧат Telegram: \(chatID)\n" : "\n"
 
                 let msg = """
-                ✉️ Новое пожелание
+                ✉️ Новое сообщение
                 Дата: \(dStr) \(tStr)
                 Пользователь: \(userTag) (ID пользователя: \(userID))
                 ID обращения: \(ticketUUID)
@@ -299,7 +299,7 @@ enum TelegramUpdateProcessor {
                 app.logger.info("Уведомления отключены (NOTIFY_ENABLED=false)")
             }
 
-            await app.telegram.sendMessage(chatID, "✅ *Спасибо, ваше пожелание принято!*", keyboard: mainKeyboard(app: app, userID: userID))
+            await app.telegram.sendMessage(chatID, "✅ *Спасибо, что поделились — вы помогаете нам становиться лучше.*", keyboard: mainKeyboard(app: app, userID: userID))
             return
         }
 
