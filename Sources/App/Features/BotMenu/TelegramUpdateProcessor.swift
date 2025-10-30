@@ -311,7 +311,17 @@ enum TelegramUpdateProcessor {
                 app.logger.info("Уведомления отключены (NOTIFY_ENABLED=false)")
             }
 
-            await app.telegram.sendMessage(chatID, "✅ *Спасибо, что поделились — вы помогаете нам становиться лучше.*", keyboard: mainKeyboard(app: app, userID: userID))
+            let caption = """
+            ✅ Спасибо, что поделились!
+            Вы помогаете нам становиться лучше.
+            """
+
+            await app.telegram.sendPhoto(
+                chatID,
+                photoURL: "https://raw.githubusercontent.com/Stockholm19/FeedbackBot/main/Assets/thanks.png",
+                caption: caption,
+                keyboard: mainKeyboard(app: app, userID: userID)
+            )
             return
         }
 

@@ -16,6 +16,7 @@ protocol TelegramService {
     func sendDocument(_ chatID: Int64, filename: String, data: ByteBuffer, caption: String?, keyboard: TGReplyKeyboardMarkup?) async
     func sendDocument(_ chatID: Int64, filename: String, data: Data, caption: String?, keyboard: TGReplyKeyboardMarkup?) async
     func sendDocument(_ chatID: Int64, fileURL: URL, fileName: String, caption: String?, keyboard: TGReplyKeyboardMarkup?) async
+    func sendPhoto(_ chatID: Int64, photoURL: String, caption: String?, keyboard: TGReplyKeyboardMarkup?) async
 }
 
 struct NoopTelegramService: TelegramService {
@@ -26,6 +27,7 @@ struct NoopTelegramService: TelegramService {
     func sendDocument(_ chatID: Int64, filename: String, data: ByteBuffer, caption: String?, keyboard: TGReplyKeyboardMarkup?) async {}
     func sendDocument(_ chatID: Int64, filename: String, data: Data, caption: String?, keyboard: TGReplyKeyboardMarkup?) async {}
     func sendDocument(_ chatID: Int64, fileURL: URL, fileName: String, caption: String?, keyboard: TGReplyKeyboardMarkup?) async {}
+    func sendPhoto(_ chatID: Int64, photoURL: String, caption: String?, keyboard: TGReplyKeyboardMarkup?) async {}
 }
 
 struct TGHTTPService: TelegramService {
@@ -138,6 +140,30 @@ struct TGHTTPService: TelegramService {
         do {
             let data = try Data(contentsOf: fileURL)
             await sendDocument(chatID, filename: fileName, data: data, caption: caption, keyboard: keyboard)
+        } catch {
+            app.logger.report(error: error)
+        }
+    }
+
+    func sendPhoto(_ chatID: Int64, photoURL: String, caption: String?, keyboard: TGReplyKeyboardMarkup?) async {
+        struct TGSendPhotoPayload: Content {
+            let chat_id: Int64
+            let photo: String
+            let caption: String?
+            let reply_markup: TGReplyKeyboardMarkup?
+        }
+
+        do {
+            let payload = TGSendPhotoPayload(
+                chat_id: chatID,
+                photo: photoURL,
+                caption: caption,
+                reply_markup: keyboard
+            )
+
+            _ = try await app.client.post(endpoint("sendPhoto")) { req in
+                try req.content.encode(payload)
+            }
         } catch {
             app.logger.report(error: error)
         }
