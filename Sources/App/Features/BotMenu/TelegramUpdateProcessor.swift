@@ -310,16 +310,18 @@ enum TelegramUpdateProcessor {
             } else {
                 app.logger.info("Уведомления отключены (NOTIFY_ENABLED=false)")
             }
-
+            
+            /* 
             let caption = """
             ✅ Спасибо, что поделились!
             Вы помогаете нам становиться лучше.
             """
-
+            */
+            
             await app.telegram.sendPhoto(
                 chatID,
-                photoURL: "https://raw.githubusercontent.com/Stockholm19/FeedbackBot/main/Assets/thanks.png",
-                caption: caption,
+                photoURL: "https://raw.githubusercontent.com/Stockholm19/FeedbackBot/main/Assets/thanks.jpg",
+                caption: nil,
                 keyboard: mainKeyboard(app: app, userID: userID)
             )
             return
