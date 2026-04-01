@@ -11,4 +11,5 @@ import Fluent
 public func registerMigrations(_ app: Application) throws {
     // Features
     app.migrations.add(CreateFeedback())
+    app.migrations.add(AddPhotoFileIDToFeedback())
 }

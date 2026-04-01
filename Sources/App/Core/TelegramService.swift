@@ -17,6 +17,9 @@ protocol TelegramService {
     func sendDocument(_ chatID: Int64, filename: String, data: Data, caption: String?, keyboard: TGReplyKeyboardMarkup?) async
     func sendDocument(_ chatID: Int64, fileURL: URL, fileName: String, caption: String?, keyboard: TGReplyKeyboardMarkup?) async
     func sendPhoto(_ chatID: Int64, photoURL: String, caption: String?, keyboard: TGReplyKeyboardMarkup?) async
+    func sendPhotoByFileID(_ chatID: Int64, fileID: String, caption: String?, keyboard: TGReplyKeyboardMarkup?) async
+    func sendDocumentByFileID(_ chatID: Int64, fileID: String, caption: String?, keyboard: TGReplyKeyboardMarkup?) async
+    func sendMediaGroup(_ chatID: Int64, attachments: [TGAttachment], caption: String?) async
 }
 
 struct NoopTelegramService: TelegramService {
@@ -28,6 +31,9 @@ struct NoopTelegramService: TelegramService {
     func sendDocument(_ chatID: Int64, filename: String, data: Data, caption: String?, keyboard: TGReplyKeyboardMarkup?) async {}
     func sendDocument(_ chatID: Int64, fileURL: URL, fileName: String, caption: String?, keyboard: TGReplyKeyboardMarkup?) async {}
     func sendPhoto(_ chatID: Int64, photoURL: String, caption: String?, keyboard: TGReplyKeyboardMarkup?) async {}
+    func sendPhotoByFileID(_ chatID: Int64, fileID: String, caption: String?, keyboard: TGReplyKeyboardMarkup?) async {}
+    func sendDocumentByFileID(_ chatID: Int64, fileID: String, caption: String?, keyboard: TGReplyKeyboardMarkup?) async {}
+    func sendMediaGroup(_ chatID: Int64, attachments: [TGAttachment], caption: String?) async {}
 }
 
 struct TGHTTPService: TelegramService {
@@ -161,6 +167,107 @@ struct TGHTTPService: TelegramService {
                 reply_markup: keyboard
             )
 
+            _ = try await app.client.post(endpoint("sendPhoto")) { req in
+                try req.content.encode(payload)
+            }
+        } catch {
+            app.logger.report(error: error)
+        }
+    }
+
+    func sendMediaGroup(_ chatID: Int64, attachments: [TGAttachment], caption: String?) async {
+        guard !attachments.isEmpty else { return }
+
+        // Если вложение одно, используем специализированный метод
+        if attachments.count == 1 {
+            let att = attachments[0]
+            if att.type == "photo" {
+                await sendPhotoByFileID(chatID, fileID: att.fileID, caption: caption, keyboard: nil)
+            } else {
+                await sendDocumentByFileID(chatID, fileID: att.fileID, caption: caption, keyboard: nil)
+            }
+            return
+        }
+
+        // Telegram не разрешает смешивать "photo/video" с "document" в одной группе.
+        // Поэтому разделяем их.
+        let photos = attachments.filter { $0.type == "photo" }
+        let docs = attachments.filter { $0.type == "document" }
+
+        // Отправляем фото-группу (если есть)
+        if !photos.isEmpty {
+            struct InputMediaPhoto: Encodable {
+                let type: String = "photo"
+                let media: String
+                let caption: String?
+            }
+            let mediaItems = photos.enumerated().map { i, id in
+                InputMediaPhoto(media: id.fileID, caption: (i == 0 && docs.isEmpty) ? caption : nil)
+            }
+            await sendMediaGroupGeneric(chatID, media: mediaItems)
+        }
+
+        // Отправляем документы (по одному или группой)
+        // Telegram документы в группе часто приходят неудобно, поэтому если их мало, можно и по одному.
+        // Но используем группу, если их больше одного.
+        if !docs.isEmpty {
+            struct InputMediaDoc: Encodable {
+                let type: String = "document"
+                let media: String
+                let caption: String?
+            }
+            let mediaItems = docs.enumerated().map { i, id in
+                InputMediaDoc(media: id.fileID, caption: (i == 0) ? caption : nil)
+            }
+            await sendMediaGroupGeneric(chatID, media: mediaItems)
+        }
+    }
+
+    private struct TGMediaGroupPayload<M: Encodable>: Encodable {
+        let chat_id: Int64
+        let media: [M]
+    }
+
+    private func sendMediaGroupGeneric<M: Encodable>(_ chatID: Int64, media: [M]) async {
+        do {
+            let body = try JSONEncoder().encode(TGMediaGroupPayload(chat_id: chatID, media: media))
+            var req = ClientRequest(method: .POST, url: endpoint("sendMediaGroup"))
+            req.headers.add(name: "Content-Type", value: "application/json")
+            req.body = .init(data: body)
+            _ = try await app.client.send(req)
+        } catch {
+            app.logger.report(error: error)
+        }
+    }
+    
+    func sendDocumentByFileID(_ chatID: Int64, fileID: String, caption: String?, keyboard: TGReplyKeyboardMarkup?) async {
+        struct Payload: Content {
+            let chat_id: Int64
+            let document: String
+            let caption: String?
+            let reply_markup: TGReplyKeyboardMarkup?
+        }
+        do {
+            let payload = Payload(chat_id: chatID, document: fileID, caption: caption, reply_markup: keyboard)
+            _ = try await app.client.post(endpoint("sendDocument")) { try $0.content.encode(payload) }
+        } catch { app.logger.report(error: error) }
+    }
+    
+    func sendPhotoByFileID(_ chatID: Int64, fileID: String, caption: String?, keyboard: TGReplyKeyboardMarkup?) async {
+        struct TGSendPhotoPayload: Content {
+            let chat_id: Int64
+            let photo: String
+            let caption: String?
+            let reply_markup: TGReplyKeyboardMarkup?
+        }
+
+        do {
+            let payload = TGSendPhotoPayload(
+                chat_id: chatID,
+                photo: fileID,
+                caption: caption,
+                reply_markup: keyboard
+            )
             _ = try await app.client.post(endpoint("sendPhoto")) { req in
                 try req.content.encode(payload)
             }

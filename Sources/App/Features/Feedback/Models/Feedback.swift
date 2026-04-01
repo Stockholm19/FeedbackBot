@@ -24,13 +24,15 @@ final class Feedback: Model, Content {
     @OptionalField(key: "admin_note") var adminNote: String?
     @OptionalField(key: "office_tag") var officeTag: String?
     @OptionalField(key: "source") var source: String?
+    @OptionalField(key: "photo_file_id") var photoFileID: String?
     @Timestamp(key: "created_at", on: .create) var createdAt: Date?
     @Timestamp(key: "updated_at", on: .update) var updatedAt: Date?
 
     init() { }
 
     init(text: String, userID: Int64, username: String? = nil, chatID: Int64? = nil,
-         status: FeedbackStatus = .new, officeTag: String? = nil, source: String? = nil)
+         status: FeedbackStatus = .new, officeTag: String? = nil, source: String? = nil,
+         photoFileID: String? = nil)
     {
         self.text = text
         self.userID = userID
@@ -39,5 +41,6 @@ final class Feedback: Model, Content {
         self.status = status
         self.officeTag = officeTag
         self.source = source
+        self.photoFileID = photoFileID
     }
 }

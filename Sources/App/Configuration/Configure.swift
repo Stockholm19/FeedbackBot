@@ -20,20 +20,18 @@ public func configure(_ app: Application) async throws {
         app.databases.use(.postgres(configuration: cfg), as: .psql)
     } else {
         let cfg = SQLPostgresConfiguration(
-            hostname: Environment.get("DB_HOST") ?? Environment.get("POSTGRES_HOST") ?? "localhost",
-            port: .init(Environment.get("DB_PORT").flatMap(Int.init)
-                        ?? Environment.get("POSTGRES_PORT").flatMap(Int.init)
-                        ?? 5432),
-            username: Environment.get("DB_USER") ?? Environment.get("POSTGRES_USER") ?? "postgres",
-            password: Environment.get("DB_PASSWORD") ?? Environment.get("POSTGRES_PASSWORD") ?? "postgres",
-            database: Environment.get("DB_NAME") ?? Environment.get("POSTGRES_DB") ?? "feedback",
+            hostname: Environment.get("POSTGRES_HOST") ?? "localhost",
+            port: .init(Environment.get("POSTGRES_PORT").flatMap(Int.init) ?? 5432),
+            username: Environment.get("POSTGRES_USER") ?? "postgres",
+            password: Environment.get("POSTGRES_PASSWORD") ?? "postgres",
+            database: Environment.get("POSTGRES_DB") ?? "feedback",
             tls: .disable
         )
         app.databases.use(.postgres(configuration: cfg), as: .psql)
     }
 
     // --- Telegram service (always) ---
-    let token = Environment.get("TELEGRAM_TOKEN") ?? Environment.get("BOT_TOKEN") ?? ""
+    let token = Environment.get("TELEGRAM_TOKEN") ?? ""
     if !token.isEmpty {
         app.logger.info("Telegram enabled")
         app.telegram = TGHTTPService(app: app, token: token)
