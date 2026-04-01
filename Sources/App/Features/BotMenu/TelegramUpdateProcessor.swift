@@ -60,7 +60,7 @@ enum TelegramUpdateProcessor {
         } else {
             return TGReplyKeyboardMarkup(
                 keyboard: [
-                    [TGKeyboardButton(text: "Да, добавить фото/файл"), TGKeyboardButton(text: "Отправить без файлов")],
+                    [TGKeyboardButton(text: "Да, добавить фото/видео/файл"), TGKeyboardButton(text: "Отправить без файлов")],
                     [TGKeyboardButton(text: "Назад")]
                 ],
                 resize_keyboard: true,
@@ -322,12 +322,15 @@ enum TelegramUpdateProcessor {
         let username = msg.from?.username
         let currentState = SessionStore.shared.get(chatID, key: SessionKey.state) as? String ?? ""
 
-        // Обработка входящего медиа (фото или документ/файл)
+        // Обработка входящего медиа (фото, видео или документ/файл)
         let incomingAttachment: TGAttachment? = {
             if let photos = msg.photo, !photos.isEmpty {
                 if let fileID = photos.sorted(by: { $0.width * $0.height < $1.width * $1.height }).last?.file_id {
                     return TGAttachment(fileID: fileID, type: "photo")
                 }
+            }
+            if let video = msg.video {
+                return TGAttachment(fileID: video.file_id, type: "video")
             }
             if let doc = msg.document {
                 return TGAttachment(fileID: doc.file_id, type: "document")
@@ -357,7 +360,7 @@ enum TelegramUpdateProcessor {
                 // Файл прислан в другом состоянии (например, в самом начале)
                 await app.telegram.sendMessage(
                     chatID,
-                    "Сначала напишите текст вашего сообщения, а потом я предложу добавить к нему фото или файл. 😊",
+                    "Сначала напишите текст вашего сообщения, а потом я предложу добавить к нему фото, видео или файл. 😊",
                     keyboard: currentState.isEmpty ? mainKeyboard(app: app, userID: userID) : inputKeyboard()
                 )
                 return
@@ -451,7 +454,7 @@ enum TelegramUpdateProcessor {
                     if photos.isEmpty {
                         await app.telegram.sendMessage(
                             chatID,
-                            "Хотите добавить фото или файл?",
+                            "Хотите добавить фото, видео или файл?",
                             keyboard: photoConfirmKeyboard(hasAttachments: false)
                         )
                     } else {
@@ -496,7 +499,7 @@ enum TelegramUpdateProcessor {
             SessionStore.shared.set(chatID, key: SessionKey.state, value: SessionKey.awaitingPhotoConfirm)
             await app.telegram.sendMessage(
                 chatID,
-                "Хотите добавить фото или файл?",
+                "Хотите добавить фото, видео или файл?",
                 keyboard: photoConfirmKeyboard(hasAttachments: false)
             )
             return
@@ -522,13 +525,13 @@ enum TelegramUpdateProcessor {
                 )
                 return
             }
-            if text == "Да, добавить фото/файл" || text == "Да, добавить ещё" {
+            if text == "Да, добавить фото/видео/файл" || text == "Да, добавить ещё" {
                 SessionStore.shared.set(chatID, key: SessionKey.state, value: SessionKey.awaitingPhotoUpload)
                 // Сохраняем уже накопленные фото в сессии
                 SessionStore.shared.set(chatID, key: SessionKey.isWaitingForNextPhoto, value: true)
                 await app.telegram.sendMessage(
                     chatID,
-                    "Отправьте фото или файл, и я прикреплю его к вашему сообщению.",
+                    "Отправьте фото, видео или файл, и я прикреплю его к вашему сообщению.",
                     keyboard: photoUploadKeyboard()
                 )
                 return
@@ -567,7 +570,7 @@ enum TelegramUpdateProcessor {
                 SessionStore.shared.set(chatID, key: SessionKey.isWaitingForNextPhoto, value: true)
                 await app.telegram.sendMessage(
                     chatID,
-                    "Отправьте следующее фото или файл.",
+                    "Отправьте следующее фото, видео или файл.",
                     keyboard: photoUploadKeyboard()
                 )
                 return
@@ -578,7 +581,7 @@ enum TelegramUpdateProcessor {
             let keyboard = accumulated.isEmpty ? photoUploadKeyboard() : photoAddedKeyboard()
             await app.telegram.sendMessage(
                 chatID,
-                "Жду фото или файл 📷 Если хотите изменить сообщение — нажмите «Назад».",
+                "Жду фото, видео или файл 📷 Если хотите изменить сообщение — нажмите «Назад».",
                 keyboard: keyboard
             )
             return

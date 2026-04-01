@@ -18,6 +18,7 @@ protocol TelegramService {
     func sendDocument(_ chatID: Int64, fileURL: URL, fileName: String, caption: String?, keyboard: TGReplyKeyboardMarkup?) async
     func sendPhoto(_ chatID: Int64, photoURL: String, caption: String?, keyboard: TGReplyKeyboardMarkup?) async
     func sendPhotoByFileID(_ chatID: Int64, fileID: String, caption: String?, keyboard: TGReplyKeyboardMarkup?) async
+    func sendVideoByFileID(_ chatID: Int64, fileID: String, caption: String?, keyboard: TGReplyKeyboardMarkup?) async
     func sendDocumentByFileID(_ chatID: Int64, fileID: String, caption: String?, keyboard: TGReplyKeyboardMarkup?) async
     func sendMediaGroup(_ chatID: Int64, attachments: [TGAttachment], caption: String?) async
 }
@@ -32,6 +33,7 @@ struct NoopTelegramService: TelegramService {
     func sendDocument(_ chatID: Int64, fileURL: URL, fileName: String, caption: String?, keyboard: TGReplyKeyboardMarkup?) async {}
     func sendPhoto(_ chatID: Int64, photoURL: String, caption: String?, keyboard: TGReplyKeyboardMarkup?) async {}
     func sendPhotoByFileID(_ chatID: Int64, fileID: String, caption: String?, keyboard: TGReplyKeyboardMarkup?) async {}
+    func sendVideoByFileID(_ chatID: Int64, fileID: String, caption: String?, keyboard: TGReplyKeyboardMarkup?) async {}
     func sendDocumentByFileID(_ chatID: Int64, fileID: String, caption: String?, keyboard: TGReplyKeyboardMarkup?) async {}
     func sendMediaGroup(_ chatID: Int64, attachments: [TGAttachment], caption: String?) async {}
 }
@@ -175,41 +177,55 @@ struct TGHTTPService: TelegramService {
         }
     }
 
+    func sendVideoByFileID(_ chatID: Int64, fileID: String, caption: String?, keyboard: TGReplyKeyboardMarkup?) async {
+        struct Payload: Content {
+            let chat_id: Int64
+            let video: String
+            let caption: String?
+            let reply_markup: TGReplyKeyboardMarkup?
+        }
+        do {
+            let payload = Payload(chat_id: chatID, video: fileID, caption: caption, reply_markup: keyboard)
+            _ = try await app.client.post(endpoint("sendVideo")) { try $0.content.encode(payload) }
+        } catch { app.logger.report(error: error) }
+    }
+
     func sendMediaGroup(_ chatID: Int64, attachments: [TGAttachment], caption: String?) async {
         guard !attachments.isEmpty else { return }
 
         // Если вложение одно, используем специализированный метод
         if attachments.count == 1 {
             let att = attachments[0]
-            if att.type == "photo" {
+            switch att.type {
+            case "photo":
                 await sendPhotoByFileID(chatID, fileID: att.fileID, caption: caption, keyboard: nil)
-            } else {
+            case "video":
+                await sendVideoByFileID(chatID, fileID: att.fileID, caption: caption, keyboard: nil)
+            default:
                 await sendDocumentByFileID(chatID, fileID: att.fileID, caption: caption, keyboard: nil)
             }
             return
         }
 
-        // Telegram не разрешает смешивать "photo/video" с "document" в одной группе.
-        // Поэтому разделяем их.
-        let photos = attachments.filter { $0.type == "photo" }
+        // Telegram позволяет смешивать фото и видео в одной группе,
+        // но не разрешает смешивать их с документами. Разделяем.
+        let visuals = attachments.filter { $0.type == "photo" || $0.type == "video" }
         let docs = attachments.filter { $0.type == "document" }
 
-        // Отправляем фото-группу (если есть)
-        if !photos.isEmpty {
-            struct InputMediaPhoto: Encodable {
-                let type: String = "photo"
+        // Отправляем фото/видео-группу (если есть)
+        if !visuals.isEmpty {
+            struct InputMediaVisual: Encodable {
+                let type: String // "photo" or "video"
                 let media: String
                 let caption: String?
             }
-            let mediaItems = photos.enumerated().map { i, id in
-                InputMediaPhoto(media: id.fileID, caption: (i == 0 && docs.isEmpty) ? caption : nil)
+            let mediaItems = visuals.enumerated().map { i, att in
+                InputMediaVisual(type: att.type, media: att.fileID, caption: (i == 0 && docs.isEmpty) ? caption : nil)
             }
             await sendMediaGroupGeneric(chatID, media: mediaItems)
         }
 
-        // Отправляем документы (по одному или группой)
-        // Telegram документы в группе часто приходят неудобно, поэтому если их мало, можно и по одному.
-        // Но используем группу, если их больше одного.
+        // Отправляем документы группой (если есть)
         if !docs.isEmpty {
             struct InputMediaDoc: Encodable {
                 let type: String = "document"

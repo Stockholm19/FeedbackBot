@@ -17,6 +17,7 @@ struct TGMessage: Content {
     let text: String?
     let photo: [TGPhotoSize]?
     let document: TGDocument?
+    let video: TGVideo?
 }
 struct TGChat: Content { let id: Int64 }
 struct TGUser: Content { let id: Int64; let username: String? }
@@ -27,9 +28,14 @@ struct TGDocument: Content {
     let mime_type: String?
 }
 
+struct TGVideo: Content {
+    let file_id: String
+    let mime_type: String?
+}
+
 struct TGAttachment: Codable {
     let fileID: String
-    let type: String // "photo" or "document"
+    let type: String // "photo", "video" or "document"
 }
 
 // MARK: - Reply keyboard
